@@ -1,0 +1,26 @@
+## Vivado
+.vivado/
+*.jou
+*.log
+*.str
+*.cache/
+*.runs/
+*.hw/
+*.ip_user_files/
+*.sim/
+*.Xil/
+
+## Bitstreams
+*.bit
+*.bin
+*.ltx
+
+## Python
+__pycache__/
+*.pyc
+venv/
+.env
+
+## OS
+.DS_Store
+Thumbs.db

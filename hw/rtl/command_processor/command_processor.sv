@@ -35,6 +35,7 @@ module command_processor (
     logic [7:0] opcode;
     logic [15:0] payload_length;
     logic [15:0] payload_count;
+    logic [31:0] draw_payload [0:5]; // buffer for DRAW_TRIANGLE payload
 
     // ------------------------------------------------
     // State Register
@@ -47,6 +48,21 @@ module command_processor (
             payload_count <= 16'd0;
         end else begin
             state <= next_state; // advance to next state
+
+            // header capture logic
+            if (state == ST_IDLE && cmd_valid && cmd_ready) begin
+                opcode <= cmd_data[31:24];
+                payload_length <= cmd_data[15:0];
+                payload_count <= 16'd0;
+            end
+
+            // payload capture logic
+            if (state == ST_READ_PAYLOAD && cmd_valid && cmd_ready) begin
+                if (opcode == 8'h02) begin // DRAW_TRIANGLE
+                    draw_payload[payload_count] <= cmd_data;
+                end
+                payload_count <= payload_count + 1;
+            end
         end
     end
 
@@ -73,19 +89,19 @@ module command_processor (
             
             ST_READ_HEADER: begin
                 cmd_ready = 1'b1;
-
-                opcode = 8'h01;
-                payload_length = 16'd0;
-
                 next_state = ST_READ_PAYLOAD;
             end
 
             ST_READ_PAYLOAD: begin
-                // if there is no payload, go to execute
+                cmd_ready = 1'b1;
+
+                // zero-length payloads skip immediately
                 if (payload_length == 0) begin
                     next_state = ST_EXECUTE;
-                end else begin
-                    cmd_ready = 1'b1;
+                end
+                // advance when last payload word is accepted
+                else if (cmd_valid && (payload_count + 1 == payload_length)) begin
+                    next_state = ST_EXECUTE;
                 end
             end
 

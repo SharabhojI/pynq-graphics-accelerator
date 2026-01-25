@@ -221,8 +221,9 @@ The DISPATCH_SIMD command interacts with the SIMD compute core:
 
 **Purpose:** Clear the active framebuffer region defined by the current viewport.
 
-**Payload:**
+**Opcode:** `0x01`
 
+**Payload:** 
 * No payload (payload length = 0)
 
 **Behavior:**
@@ -237,20 +238,40 @@ The DISPATCH_SIMD command interacts with the SIMD compute core:
 
 **Purpose:** Rasterize a single triangle using the current graphics state.
 
-**Payload:**
+**Opcode:** `0x02`
 
-* Fixed-size payload
+**Payload:** 
+* Fixed-size payload (6 words)
 * Contains three vertices in screen space:
 
-  * `(x0, y0)`
-  * `(x1, y1)`
-  * `(x2, y2)`
+  | Word Index | Description |
+  |------------|-------------|
+  |     0      |     x0      |
+  |     1      |     y0      |
+  |     2      |     x1      |
+  |     3      |     y1      |
+  |     4      |     x2      |
+  |     5      |     y2      |
+
+**Coordinate Format:**
+
+* Coordinates are integer screen-space (framebuffer) coordinates
+* Each coordinate is provided as a 32-bit word
+* Lower bits are used with upper bits are ignored in v1
+* No fixed-point or floating-point support in v1
+
+**Behavior:**
+
+* The command processor consumes and buffers all payload words before execution
+* The rasterizer is triggered only after the full payload has been received
+* Color, viewport, and framebuffer are taken from current state
+* The command completes when the rasterizer asserts `raster_done`
 
 **Notes:**
 
-* Coordinates are provided in framebuffer space
-* Color and viewport are taken from state
-* Payload data may be buffered or streamed to the rasterizer
+* The payload format is fixed-size and deterministic in v1
+* This format is intentionally simple to reduce hardware and software complexity
+* Future versions may introduce packed formats, depth values, or per-vertex attributes
 
 ---
 

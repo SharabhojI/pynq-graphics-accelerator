@@ -140,6 +140,54 @@ module tb_command_processor;
         raster_done = 0;
 
         // ------------------------------------------------
+        // Issue SET_COLOR command
+        // ------------------------------------------------
+        #40;
+
+        // Header: SET_COLOR, payload_length = 1
+        cmd_valid = 1;
+        cmd_data  = {8'h10, 8'h00, 16'd1};
+
+        wait (cmd_ready);
+        #10;
+        cmd_valid = 0;
+
+        // Payload: color value
+        #10;
+        cmd_valid = 1;
+        cmd_data  = 32'hFF0000; // red (example)
+
+        wait (cmd_ready);
+        #10;
+        cmd_valid = 0;
+
+        // ------------------------------------------------
+        // Issue SET_VIEWPORT command
+        // ------------------------------------------------
+        #40;
+
+        // Header: SET_VIEWPORT, payload_length = 4
+        cmd_valid = 1;
+        cmd_data  = {8'h11, 8'h00, 16'd4};
+
+        wait (cmd_ready);
+        #10;
+        cmd_valid = 0;
+
+        // Payload words
+        #10; cmd_valid = 1; cmd_data = 32'd0;   // x_min
+        wait (cmd_ready); #10; cmd_valid = 0;
+
+        #10; cmd_valid = 1; cmd_data = 32'd0;   // y_min
+        wait (cmd_ready); #10; cmd_valid = 0;
+
+        #10; cmd_valid = 1; cmd_data = 32'd639; // x_max
+        wait (cmd_ready); #10; cmd_valid = 0;
+
+        #10; cmd_valid = 1; cmd_data = 32'd479; // y_max
+        wait (cmd_ready); #10; cmd_valid = 0;
+
+        // ------------------------------------------------
         // Finish
         // ------------------------------------------------
         #100;

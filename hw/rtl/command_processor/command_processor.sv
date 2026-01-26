@@ -29,13 +29,24 @@ module command_processor (
 
     fsm_state_t state, next_state; 
 
+    // Write enable signals
+    logic set_color_we;
+    logic set_viewport_we;
+
     // ------------------------------------------------
-    // Registers (TODO: Implement)
+    // Registers
     // ------------------------------------------------
     logic [7:0] opcode;
     logic [15:0] payload_length;
     logic [15:0] payload_count;
     logic [31:0] draw_payload [0:5]; // buffer for DRAW_TRIANGLE payload
+
+    // ------------------------------------------------
+    // Graphics state registers
+    // ------------------------------------------------
+    logic [31:0] current_color;
+    logic [31:0] viewport_xmin, viewport_ymin;
+    logic [31:0] viewport_xmax, viewport_ymax;
 
     // ------------------------------------------------
     // State Register
@@ -46,6 +57,13 @@ module command_processor (
             opcode <= 8'h00;
             payload_length <= 16'd0;
             payload_count <= 16'd0;
+
+            // reset graphics state
+            current_color <= 32'h00000000; // default black
+            viewport_xmin <= 32'd0;
+            viewport_ymin <= 32'd0;
+            viewport_xmax <= 32'd0;
+            viewport_ymax <= 32'd0;
         end else begin
             state <= next_state; // advance to next state
 
@@ -63,6 +81,19 @@ module command_processor (
                 end
                 payload_count <= payload_count + 1;
             end
+
+            // set color update
+            if (set_color_we) begin
+                current_color <= draw_payload[0];
+            end
+            
+            // set viewport update
+            if (set_viewport_we) begin
+                viewport_xmin <= draw_payload[0];
+                viewport_ymin <= draw_payload[1];
+                viewport_xmax <= draw_payload[2];
+                viewport_ymax <= draw_payload[3];
+            end
         end
     end
 
@@ -77,6 +108,9 @@ module command_processor (
         clear_start = 1'b0;
         raster_start = 1'b0;
         simd_start = 1'b0;
+
+        set_color_we = 1'b0;
+        set_viewport_we = 1'b0;
 
         // switch case for state
         case (state)
@@ -127,6 +161,18 @@ module command_processor (
                         simd_start = 1'b1;
                         if (simd_done)
                             next_state = ST_IDLE;
+                    end
+
+                    // SET_COLOR
+                    8'h10: begin
+                        set_color_we = 1'b1;
+                        next_state = ST_IDLE;
+                    end
+
+                    // SET_VIEWPORT
+                    8'h11: begin
+                        set_viewport_we = 1'b1;
+                        next_state = ST_IDLE;
                     end
 
                     // unknown opcode

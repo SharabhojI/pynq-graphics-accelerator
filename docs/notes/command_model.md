@@ -63,8 +63,7 @@ The command processor operates as a finite state machine with the following phas
 1. **IDLE** – Wait for command FIFO to become non-empty
 2. **READ_HEADER** – Read and decode command header
 3. **READ_PAYLOAD** – Consume payload words (if any)
-4. **EXECUTE** – Trigger target hardware block and wait for completion
-5. **RETURN TO IDLE** – Prepare for next command
+4. **EXECUTE** – Perform command action, wait for completion, and transition back to IDLE
 
 Payload reading is skipped if payload length is zero.
 
@@ -170,10 +169,19 @@ The DISPATCH_SIMD command interacts with the SIMD compute core:
 
 **Purpose:** Update the current drawing color used by subsequent graphics commands.
 
+**Opcode:** `0x10` (for clean separation from action ops)
+
 **Payload:**
 
-* Fixed-size payload
+* Fixed-size payload (1 word)
 * Contains color components (e.g., R, G, B)
+
+  | Word Bits | Description |
+  |-----------|-------------|
+  |  [31:24]  |      R      |
+  |  [23:16]  |      G      |
+  |  [15:8]   |      B      |
+  |  [7:0]    |  Reserved   |
 
 **Notes:**
 
@@ -186,13 +194,19 @@ The DISPATCH_SIMD command interacts with the SIMD compute core:
 
 **Purpose:** Define the active rendering viewport in framebuffer coordinates.
 
+**Opcode:** `0x11`
+
 **Payload:**
 
-* Fixed-size payload
+* Fixed-size payload (4 words)
 * Viewport bounds specified as:
 
-  * `x_min`, `x_max`
-  * `y_min`, `y_max`
+  |  Word  | Description |
+  |--------|-------------|
+  |   0    |    x_min    |
+  |   1    |    y_min    |
+  |   2    |    x_max    |
+  |   3    |    y_max    |
 
 **Notes:**
 
@@ -205,9 +219,11 @@ The DISPATCH_SIMD command interacts with the SIMD compute core:
 
 **Purpose:** Set the base address of the framebuffer in external memory.
 
+**Opcode:** `0x12`
+
 **Payload:**
 
-* Fixed-size payload
+* Fixed-size payload (1 word)
 * Contains framebuffer base address
 
 **Notes:**

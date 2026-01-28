@@ -1,12 +1,12 @@
 module tb_command_processor;
-    
+
     // ------------------------------------------------
     // Clock and Reset
     // ------------------------------------------------
     logic clk;
     logic rst_n;
 
-    always #5 clk = ~clk; // 10 time unit clock period (100MHz)
+    always #5 clk = ~clk;
 
     // ------------------------------------------------
     // DUT Signals
@@ -16,7 +16,6 @@ module tb_command_processor;
     logic        cmd_ready;
 
     logic        clear_start;
-    logic        clear_done;
 
     logic        raster_start;
     logic        raster_done;
@@ -36,7 +35,6 @@ module tb_command_processor;
         .cmd_ready(cmd_ready),
 
         .clear_start(clear_start),
-        .clear_done(clear_done),
 
         .raster_start(raster_start),
         .raster_done(raster_done),
@@ -44,152 +42,162 @@ module tb_command_processor;
         .simd_start(simd_start),
         .simd_done(simd_done)
     );
-    
+
+    // ------------------------------------------------
+    // Pixel Monitor
+    // ------------------------------------------------
+    always @(posedge clk) begin
+        if (dut.arbiter_pixel_valid) begin
+            $display(
+                "PIXEL @ %0t : (%0d, %0d) = %h",
+                $time,
+                dut.arbiter_pixel_x,
+                dut.arbiter_pixel_y,
+                dut.arbiter_pixel_color
+            );
+        end
+    end
+
+    // ------------------------------------------------
+    // Helper: wait until DUT is idle
+    // ------------------------------------------------
+    task wait_idle;
+        wait (dut.state == dut.ST_IDLE);
+        @(posedge clk);
+    endtask
+
     // ------------------------------------------------
     // Test Sequence
     // ------------------------------------------------
     initial begin
-        // Initialize signals
         clk = 0;
         rst_n = 0;
 
         cmd_valid = 0;
-        cmd_data = 32'b0;
+        cmd_data  = 32'b0;
 
-        clear_done = 0;
         raster_done = 0;
-        simd_done = 0;
+        simd_done   = 0;
 
-        // Apply reset
+        // Reset
         #20;
         rst_n = 1;
+        wait_idle();
 
-        // ------------------------------------------------
-        // Issue fake CLEAR command
-        // ------------------------------------------------
-
-        #20;
-        cmd_valid = 1;
-        cmd_data = {8'h01, 8'h00, 16'd0}; // CLEAR command with 0 payload length
-
-        // Wait until command is accepted
-        wait (cmd_ready);
-        #10;
-        cmd_valid = 0;
-
-        // ------------------------------------------------
-        // Simulate CLEAR operation completion
-        // ------------------------------------------------
-        wait (clear_start);
-        #30;
-        clear_done = 1;
-        #10;
-        clear_done = 0;
-
-        // ------------------------------------------------
-        // Issue DRAW_TRIANGLE command
-        // ------------------------------------------------
-        #40;
-
-        // Send DRAW header
-        cmd_valid = 1;
-        cmd_data  = {8'h02, 8'h00, 16'd6}; // DRAW_TRIANGLE, payload_length = 6
-
-        wait (cmd_ready);
-        #10;
-        cmd_valid = 0;
-
-        // ------------------------------------------------
-        // Send DRAW payload (6 words)
-        // ------------------------------------------------
-
-        // Vertex 0
-        #10; cmd_valid = 1; cmd_data = 32'd10; // x0
-        wait (cmd_ready);
-        #10; cmd_valid = 0;
-
-        #10; cmd_valid = 1; cmd_data = 32'd10; // y0
-        wait (cmd_ready);
-        #10; cmd_valid = 0;
-
-        // Vertex 1
-        #10; cmd_valid = 1; cmd_data = 32'd50; // x1
-        wait (cmd_ready);
-        #10; cmd_valid = 0;
-
-        #10; cmd_valid = 1; cmd_data = 32'd10; // y1
-        wait (cmd_ready);
-        #10; cmd_valid = 0;
-
-        // Vertex 2
-        #10; cmd_valid = 1; cmd_data = 32'd30; // x2
-        wait (cmd_ready);
-        #10; cmd_valid = 0;
-
-        #10; cmd_valid = 1; cmd_data = 32'd40; // y2
-        wait (cmd_ready);
-        #10; cmd_valid = 0;
-
-        // ------------------------------------------------
-        // Simulate rasterizer completion
-        // ------------------------------------------------
-        wait (raster_start);
-        #50;
-        raster_done = 1;
-        #10;
-        raster_done = 0;
-
-        // ------------------------------------------------
-        // Issue SET_COLOR command
-        // ------------------------------------------------
-        #40;
-
-        // Header: SET_COLOR, payload_length = 1
-        cmd_valid = 1;
-        cmd_data  = {8'h10, 8'h00, 16'd1};
-
-        wait (cmd_ready);
-        #10;
-        cmd_valid = 0;
-
-        // Payload: color value
-        #10;
-        cmd_valid = 1;
-        cmd_data  = 32'hFF0000; // red (example)
-
-        wait (cmd_ready);
-        #10;
-        cmd_valid = 0;
-
-        // ------------------------------------------------
-        // Issue SET_VIEWPORT command
-        // ------------------------------------------------
-        #40;
-
-        // Header: SET_VIEWPORT, payload_length = 4
+        // ========================================================
+        // SET_VIEWPORT
+        // ========================================================
         cmd_valid = 1;
         cmd_data  = {8'h11, 8'h00, 16'd4};
-
         wait (cmd_ready);
-        #10;
+        @(posedge clk);
         cmd_valid = 0;
 
-        // Payload words
-        #10; cmd_valid = 1; cmd_data = 32'd0;   // x_min
-        wait (cmd_ready); #10; cmd_valid = 0;
+        @(posedge clk); cmd_valid = 1; cmd_data = 32'd0;
+        wait (cmd_ready);
+        @(posedge clk);
+        cmd_valid = 0;
 
-        #10; cmd_valid = 1; cmd_data = 32'd0;   // y_min
-        wait (cmd_ready); #10; cmd_valid = 0;
+        @(posedge clk); cmd_valid = 1; cmd_data = 32'd0;
+        wait (cmd_ready);
+        @(posedge clk);
+        cmd_valid = 0;
 
-        #10; cmd_valid = 1; cmd_data = 32'd639; // x_max
-        wait (cmd_ready); #10; cmd_valid = 0;
+        @(posedge clk); cmd_valid = 1; cmd_data = 32'd4;
+        wait (cmd_ready);
+        @(posedge clk);
+        cmd_valid = 0;
 
-        #10; cmd_valid = 1; cmd_data = 32'd479; // y_max
-        wait (cmd_ready); #10; cmd_valid = 0;
+        @(posedge clk); cmd_valid = 1; cmd_data = 32'd3;
+        wait (cmd_ready);
+        @(posedge clk);
+        cmd_valid = 0;
 
-        // ------------------------------------------------
+        wait_idle();
+
+        // ========================================================
+        // CLEAR
+        // ========================================================
+        cmd_valid = 1;
+        cmd_data  = {8'h01, 8'h00, 16'd0};
+        wait (cmd_ready);
+        @(posedge clk);
+        cmd_valid = 0;
+
+        // clear_unit runs internally
+        wait_idle();
+
+        // ========================================================
+        // DRAW_TRIANGLE
+        // ========================================================
+        cmd_valid = 1;
+        cmd_data  = {8'h02, 8'h00, 16'd6};
+        wait (cmd_ready);
+        @(posedge clk);
+        cmd_valid = 0;
+
+        @(posedge clk); cmd_valid = 1; cmd_data = 32'd10;
+        wait (cmd_ready);
+        @(posedge clk);
+        cmd_valid = 0;
+
+        @(posedge clk); cmd_valid = 1; cmd_data = 32'd10;
+        wait (cmd_ready);
+        @(posedge clk);
+        cmd_valid = 0;
+
+        @(posedge clk); cmd_valid = 1; cmd_data = 32'd50;
+        wait (cmd_ready);
+        @(posedge clk);
+        cmd_valid = 0;
+
+        @(posedge clk); cmd_valid = 1; cmd_data = 32'd10;
+        wait (cmd_ready);
+        @(posedge clk);
+        cmd_valid = 0;
+
+        @(posedge clk); cmd_valid = 1; cmd_data = 32'd30;
+        wait (cmd_ready);
+        @(posedge clk);
+        cmd_valid = 0;
+
+        @(posedge clk); cmd_valid = 1; cmd_data = 32'd40;
+        wait (cmd_ready);
+        @(posedge clk);
+        cmd_valid = 0;
+
+        // wait for raster start pulse
+        @(posedge clk iff raster_start);
+
+        // simulate raster execution latency
+        repeat (5) @(posedge clk);
+        raster_done <= 1'b1;
+        @(posedge clk);
+        raster_done <= 1'b0;
+
+        wait_idle();
+
+        // ========================================================
+        // SET_COLOR
+        // ========================================================
+        cmd_valid = 1;
+        cmd_data  = {8'h10, 8'h00, 16'd1};
+        wait (cmd_ready);
+        @(posedge clk);
+        cmd_valid = 0;
+
+        @(posedge clk);
+        cmd_valid = 1;
+        cmd_data  = 32'hFF0000;
+        wait (cmd_ready);
+        @(posedge clk);
+        cmd_valid = 0;
+
+        wait_idle();
+
+        // ========================================================
         // Finish
-        // ------------------------------------------------
+        // ========================================================
         #100;
         $finish;
     end

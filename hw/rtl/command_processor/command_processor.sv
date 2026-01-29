@@ -55,6 +55,10 @@ module command_processor (
     logic [31:0] clear_pixel_y;
     logic [31:0] clear_pixel_color;
 
+    // ------------------------------------------------
+    // EXECUTE entry detection
+    // ------------------------------------------------
+    logic exec_active_d;
 
     clear_unit clear_inst (
         .clk(clk),
@@ -87,13 +91,13 @@ module command_processor (
         .clear_y     (clear_pixel_y),
         .clear_color (clear_pixel_color),
 
-        // RASTER source (stub for now)
+        // RASTER source (stub)
         .raster_valid (1'b0),
         .raster_x     (32'd0),
         .raster_y     (32'd0),
         .raster_color (32'd0),
 
-        // SIMD source (stub for now)
+        // SIMD source (stub)
         .simd_valid (1'b0),
         .simd_x     (32'd0),
         .simd_y     (32'd0),
@@ -112,12 +116,13 @@ module command_processor (
     always_ff @(posedge clk or negedge rst_n) begin
         if (!rst_n) begin
             state <= ST_IDLE;
+            exec_active_d <= 1'b0;
 
             opcode <= 8'h00;
             payload_length <= 16'd0;
             payload_count <= 16'd0;
 
-            current_color <= 32'h0;
+            current_color <= 32'd0;
             viewport_xmin <= 32'd0;
             viewport_ymin <= 32'd0;
             viewport_xmax <= 32'd0;
@@ -125,25 +130,26 @@ module command_processor (
 
             clear_start <= 1'b0;
         end else begin
+            exec_active_d <= (state == ST_EXECUTE);
             state <= next_state;
 
-            // default pulse
             clear_start <= 1'b0;
 
-            // Header capture
+            // Capture header (IDLE only)
             if (state == ST_IDLE && cmd_valid && cmd_ready) begin
+                $display("%0t HEADER %h len=%0d", $time, cmd_data, cmd_data[15:0]);
                 opcode         <= cmd_data[31:24];
                 payload_length <= cmd_data[15:0];
                 payload_count  <= 16'd0;
             end
 
-            // Payload capture
-            if (state == ST_READ_PAYLOAD && cmd_valid && cmd_ready) begin
+            // Capture payload words
+            if (state == ST_READ_PAYLOAD && cmd_valid && cmd_ready && payload_count < payload_length) begin
                 payload_buf[payload_count] <= cmd_data;
                 payload_count <= payload_count + 1;
             end
 
-            // Apply state writes
+            // Apply state updates
             if (set_color_we)
                 current_color <= payload_buf[0];
 
@@ -154,7 +160,9 @@ module command_processor (
                 viewport_ymax <= payload_buf[3];
             end
 
-            clear_start <= (state == ST_EXECUTE && opcode == 8'h01);
+            // Pulse CLEAR start on entry to EXECUTE
+            if (state == ST_EXECUTE && !exec_active_d && opcode == 8'h01)
+                clear_start <= 1'b1;
         end
     end
 
@@ -163,7 +171,9 @@ module command_processor (
     // ------------------------------------------------
     always_comb begin
         next_state = state;
-        cmd_ready  = 1'b0;
+
+        // Phase-accurate ready/valid
+        cmd_ready = 1'b0;
 
         raster_start    = 1'b0;
         simd_start      = 1'b0;
@@ -174,7 +184,7 @@ module command_processor (
             ST_IDLE: begin
                 cmd_ready = 1'b1;
                 if (cmd_valid) begin
-                    if (cmd_data[15:0] == 0)
+                    if (cmd_data[15:0] == 16'd0)
                         next_state = ST_EXECUTE;
                     else
                         next_state = ST_READ_PAYLOAD;
@@ -182,8 +192,8 @@ module command_processor (
             end
 
             ST_READ_PAYLOAD: begin
-                cmd_ready = 1'b1;
-                if (payload_count == payload_length)
+                cmd_ready = (payload_count < payload_length);
+                if (payload_count >= payload_length)
                     next_state = ST_EXECUTE;
             end
 

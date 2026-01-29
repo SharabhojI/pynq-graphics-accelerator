@@ -44,26 +44,25 @@ module tb_command_processor;
     );
 
     // ------------------------------------------------
-    // Pixel Monitor
-    // ------------------------------------------------
-    always @(posedge clk) begin
-        if (dut.arbiter_pixel_valid) begin
-            $display(
-                "PIXEL @ %0t : (%0d, %0d) = %h",
-                $time,
-                dut.arbiter_pixel_x,
-                dut.arbiter_pixel_y,
-                dut.arbiter_pixel_color
-            );
-        end
-    end
-
-    // ------------------------------------------------
     // Helper: wait until DUT is idle
     // ------------------------------------------------
     task wait_idle;
         wait (dut.state == dut.ST_IDLE);
         @(posedge clk);
+    endtask
+
+    // ------------------------------------------------
+    // Helper: send one command word
+    // ------------------------------------------------
+    task send_word(input [31:0] word);
+        cmd_valid <= 1'b1;
+        cmd_data  <= word;
+
+        // Wait for acceptance
+        @(posedge clk iff cmd_ready);
+
+        // Drop valid immediately after acceptance
+        cmd_valid <= 1'b0;
     endtask
 
     // ------------------------------------------------
@@ -85,114 +84,46 @@ module tb_command_processor;
         wait_idle();
 
         // ========================================================
-        // SET_VIEWPORT
+        // SET_VIEWPORT (opcode 0x11, 4 payloads)
         // ========================================================
-        cmd_valid = 1;
-        cmd_data  = {8'h11, 8'h00, 16'd4};
-        wait (cmd_ready);
-        @(posedge clk);
-        cmd_valid = 0;
-
-        @(posedge clk); cmd_valid = 1; cmd_data = 32'd0;
-        wait (cmd_ready);
-        @(posedge clk);
-        cmd_valid = 0;
-
-        @(posedge clk); cmd_valid = 1; cmd_data = 32'd0;
-        wait (cmd_ready);
-        @(posedge clk);
-        cmd_valid = 0;
-
-        @(posedge clk); cmd_valid = 1; cmd_data = 32'd4;
-        wait (cmd_ready);
-        @(posedge clk);
-        cmd_valid = 0;
-
-        @(posedge clk); cmd_valid = 1; cmd_data = 32'd3;
-        wait (cmd_ready);
-        @(posedge clk);
-        cmd_valid = 0;
-
+        send_word({8'h11, 8'h00, 16'd4});
+        send_word(32'd0);
+        send_word(32'd0);
+        send_word(32'd4);
+        send_word(32'd3);
         wait_idle();
 
         // ========================================================
-        // CLEAR
+        // CLEAR (opcode 0x01, no payload)
         // ========================================================
-        cmd_valid = 1;
-        cmd_data  = {8'h01, 8'h00, 16'd0};
-        wait (cmd_ready);
-        @(posedge clk);
-        cmd_valid = 0;
-
-        // clear_unit runs internally
-        wait_idle();
+        send_word({8'h01, 8'h00, 16'd0});
+        wait_idle();   // clear_unit finishes internally
 
         // ========================================================
-        // DRAW_TRIANGLE
+        // DRAW_TRIANGLE (opcode 0x02, 6 payloads)
         // ========================================================
-        cmd_valid = 1;
-        cmd_data  = {8'h02, 8'h00, 16'd6};
-        wait (cmd_ready);
-        @(posedge clk);
-        cmd_valid = 0;
+        send_word({8'h02, 8'h00, 16'd6});
+        send_word(32'd10);
+        send_word(32'd10);
+        send_word(32'd50);
+        send_word(32'd10);
+        send_word(32'd30);
+        send_word(32'd40);
 
-        @(posedge clk); cmd_valid = 1; cmd_data = 32'd10;
-        wait (cmd_ready);
-        @(posedge clk);
-        cmd_valid = 0;
-
-        @(posedge clk); cmd_valid = 1; cmd_data = 32'd10;
-        wait (cmd_ready);
-        @(posedge clk);
-        cmd_valid = 0;
-
-        @(posedge clk); cmd_valid = 1; cmd_data = 32'd50;
-        wait (cmd_ready);
-        @(posedge clk);
-        cmd_valid = 0;
-
-        @(posedge clk); cmd_valid = 1; cmd_data = 32'd10;
-        wait (cmd_ready);
-        @(posedge clk);
-        cmd_valid = 0;
-
-        @(posedge clk); cmd_valid = 1; cmd_data = 32'd30;
-        wait (cmd_ready);
-        @(posedge clk);
-        cmd_valid = 0;
-
-        @(posedge clk); cmd_valid = 1; cmd_data = 32'd40;
-        wait (cmd_ready);
-        @(posedge clk);
-        cmd_valid = 0;
-
-        // wait for raster start pulse
+        // Simulate raster latency
         @(posedge clk iff raster_start);
-
-        // simulate raster execution latency
         repeat (5) @(posedge clk);
-        raster_done <= 1'b1;
+        raster_done = 1'b1;
         @(posedge clk);
-        raster_done <= 1'b0;
+        raster_done = 1'b0;
 
         wait_idle();
 
         // ========================================================
-        // SET_COLOR
+        // SET_COLOR (opcode 0x10, 1 payload)
         // ========================================================
-        cmd_valid = 1;
-        cmd_data  = {8'h10, 8'h00, 16'd1};
-        wait (cmd_ready);
-        @(posedge clk);
-        cmd_valid = 0;
-
-        @(posedge clk);
-        cmd_valid = 1;
-        cmd_data  = 32'hFF0000;
-        wait (cmd_ready);
-        @(posedge clk);
-        cmd_valid = 0;
-
+        send_word({8'h10, 8'h00, 16'd1});
+        send_word(32'hFF0000);
         wait_idle();
 
         // ========================================================

@@ -12,14 +12,14 @@
    </db_ref_list>
    <zoom_setting>
       <ZoomStartTime time="0.000 ns"></ZoomStartTime>
-      <ZoomEndTime time="655.001 ns"></ZoomEndTime>
-      <Cursor1Time time="655.000 ns"></Cursor1Time>
+      <ZoomEndTime time="1,000.001 ns"></ZoomEndTime>
+      <Cursor1Time time="1,000.000 ns"></Cursor1Time>
    </zoom_setting>
    <column_width_setting>
       <NameColumnWidth column_width="166"></NameColumnWidth>
-      <ValueColumnWidth column_width="93"></ValueColumnWidth>
+      <ValueColumnWidth column_width="89"></ValueColumnWidth>
    </column_width_setting>
-   <WVObjectSize size="12" />
+   <WVObjectSize size="18" />
    <wvobject fp_name="/tb_command_processor/clk" type="logic">
       <obj_property name="ElementShortName">clk</obj_property>
       <obj_property name="ObjectShortName">clk</obj_property>
@@ -52,6 +52,14 @@
       <obj_property name="ElementShortName">next_state[1:0]</obj_property>
       <obj_property name="ObjectShortName">next_state[1:0]</obj_property>
    </wvobject>
+   <wvobject fp_name="/tb_command_processor/dut/payload_count" type="array">
+      <obj_property name="ElementShortName">payload_count[15:0]</obj_property>
+      <obj_property name="ObjectShortName">payload_count[15:0]</obj_property>
+   </wvobject>
+   <wvobject fp_name="/tb_command_processor/dut/payload_length" type="array">
+      <obj_property name="ElementShortName">payload_length[15:0]</obj_property>
+      <obj_property name="ObjectShortName">payload_length[15:0]</obj_property>
+   </wvobject>
    <wvobject fp_name="/tb_command_processor/dut/viewport_xmax" type="array">
       <obj_property name="ElementShortName">viewport_xmax[31:0]</obj_property>
       <obj_property name="ObjectShortName">viewport_xmax[31:0]</obj_property>
@@ -67,5 +75,21 @@
    <wvobject fp_name="/tb_command_processor/dut/clear_done_int" type="logic">
       <obj_property name="ElementShortName">clear_done_int</obj_property>
       <obj_property name="ObjectShortName">clear_done_int</obj_property>
+   </wvobject>
+   <wvobject fp_name="/tb_command_processor/dut/arbiter_pixel_valid" type="logic">
+      <obj_property name="ElementShortName">arbiter_pixel_valid</obj_property>
+      <obj_property name="ObjectShortName">arbiter_pixel_valid</obj_property>
+   </wvobject>
+   <wvobject fp_name="/tb_command_processor/dut/arbiter_pixel_x" type="array">
+      <obj_property name="ElementShortName">arbiter_pixel_x[31:0]</obj_property>
+      <obj_property name="ObjectShortName">arbiter_pixel_x[31:0]</obj_property>
+   </wvobject>
+   <wvobject fp_name="/tb_command_processor/dut/arbiter_pixel_y" type="array">
+      <obj_property name="ElementShortName">arbiter_pixel_y[31:0]</obj_property>
+      <obj_property name="ObjectShortName">arbiter_pixel_y[31:0]</obj_property>
+   </wvobject>
+   <wvobject fp_name="/tb_command_processor/dut/arbiter_pixel_color" type="array">
+      <obj_property name="ElementShortName">arbiter_pixel_color[31:0]</obj_property>
+      <obj_property name="ObjectShortName">arbiter_pixel_color[31:0]</obj_property>
    </wvobject>
 </wave_config>

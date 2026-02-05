@@ -9,10 +9,7 @@ module command_processor (
 
     // Action block interfaces
     output logic        clear_start,
-
-    output logic        raster_start,
-    input  logic        raster_done,
-    
+    output logic        raster_start,    
     output logic        simd_start,
     input  logic        simd_done
 );
@@ -47,6 +44,11 @@ module command_processor (
     logic set_viewport_we;
 
     // ------------------------------------------------
+    // EXECUTE entry detection
+    // ------------------------------------------------
+    logic exec_active_d;
+
+    // ------------------------------------------------
     // Clear unit
     // ------------------------------------------------
     logic clear_done_int;
@@ -55,25 +57,56 @@ module command_processor (
     logic [31:0] clear_pixel_y;
     logic [31:0] clear_pixel_color;
 
-    // ------------------------------------------------
-    // EXECUTE entry detection
-    // ------------------------------------------------
-    logic exec_active_d;
-
     clear_unit clear_inst (
         .clk(clk),
         .rst_n(rst_n),
         .start(clear_start),
         .done(clear_done_int),
+
         .color(current_color),
         .xmin(viewport_xmin),
         .ymin(viewport_ymin),
         .xmax(viewport_xmax),
         .ymax(viewport_ymax),
+
         .pixel_valid(clear_pixel_valid),
         .pixel_x(clear_pixel_x),
         .pixel_y(clear_pixel_y),
         .pixel_color(clear_pixel_color)
+    );
+
+    // ------------------------------------------------
+    // Rasterizer
+    // ------------------------------------------------
+    logic raster_done_int;
+    logic raster_pixel_valid;
+    logic [31:0] raster_pixel_x;
+    logic [31:0] raster_pixel_y;
+    logic [31:0] raster_pixel_color;
+
+    rasterizer raster_inst (
+        .clk(clk),
+        .rst_n(rst_n),
+        .start(raster_start),
+        .done(raster_done_int),
+
+        .x0(payload_buf[0]),
+        .y0(payload_buf[1]),
+        .x1(payload_buf[2]),
+        .y1(payload_buf[3]),
+        .x2(payload_buf[4]),
+        .y2(payload_buf[5]),
+
+        .color(current_color),
+        .viewport_xmin(viewport_xmin),
+        .viewport_ymin(viewport_ymin),
+        .viewport_xmax(viewport_xmax),
+        .viewport_ymax(viewport_ymax),
+
+        .pixel_valid(raster_pixel_valid),
+        .pixel_x(raster_pixel_x),
+        .pixel_y(raster_pixel_y),
+        .pixel_color(raster_pixel_color)
     );
 
     // ------------------------------------------------
@@ -91,11 +124,11 @@ module command_processor (
         .clear_y     (clear_pixel_y),
         .clear_color (clear_pixel_color),
 
-        // RASTER source (stub)
-        .raster_valid (1'b0),
-        .raster_x     (32'd0),
-        .raster_y     (32'd0),
-        .raster_color (32'd0),
+        // RASTER source
+        .raster_valid (raster_pixel_valid),
+        .raster_x     (raster_pixel_x),
+        .raster_y     (raster_pixel_y),
+        .raster_color (raster_pixel_color),
 
         // SIMD source (stub)
         .simd_valid (1'b0),
@@ -129,11 +162,13 @@ module command_processor (
             viewport_ymax <= 32'd0;
 
             clear_start <= 1'b0;
+            raster_start <= 1'b0;
         end else begin
             exec_active_d <= (state == ST_EXECUTE);
             state <= next_state;
 
             clear_start <= 1'b0;
+            raster_start <= 1'b0;
 
             // Capture header (IDLE only)
             if (state == ST_IDLE && cmd_valid && cmd_ready) begin
@@ -163,8 +198,51 @@ module command_processor (
             // Pulse CLEAR start on entry to EXECUTE
             if (state == ST_EXECUTE && !exec_active_d && opcode == 8'h01)
                 clear_start <= 1'b1;
+
+            // Pulse RASTER start on entry to EXECUTE
+            if (state == ST_EXECUTE && !exec_active_d && opcode == 8'h02)
+                raster_start <= 1'b1;
         end
     end
+
+    // ------------------------------------------------
+    // Assertions (simulation only)
+    // ------------------------------------------------
+    `ifndef SYNTHESIS
+
+        // A command word may only be accepted in IDLE or READ_PAYLOAD
+        always_ff @(posedge clk) begin
+            if (rst_n && cmd_valid && cmd_ready) begin
+                assert (state == ST_IDLE || state == ST_READ_PAYLOAD)
+                    else $fatal("Command accepted in illegal state %0d", state);
+            end
+        end
+
+        // No command word may be accepted during EXECUTE
+        always_ff @(posedge clk) begin
+            if (rst_n && state == ST_EXECUTE) begin
+                assert (!(cmd_valid && cmd_ready))
+                    else $fatal("Command accepted during EXECUTE");
+            end
+        end
+
+        // Payload count must never exceed payload length
+        always_ff @(posedge clk) begin
+            if (rst_n) begin
+                assert (payload_count <= payload_length)
+                    else $fatal("payload_count exceeded payload_length");
+            end
+        end
+
+        // Zero-length payload commands must never enter READ_PAYLOAD
+        always_comb begin
+            if (state == ST_READ_PAYLOAD) begin
+                assert (payload_length != 16'd0)
+                    else $fatal("Entered ST_READ_PAYLOAD with payload_length == 0");
+            end
+        end
+
+    `endif
 
     // ------------------------------------------------
     // Combinational FSM
@@ -175,7 +253,6 @@ module command_processor (
         // Phase-accurate ready/valid
         cmd_ready = 1'b0;
 
-        raster_start    = 1'b0;
         simd_start      = 1'b0;
         set_color_we    = 1'b0;
         set_viewport_we = 1'b0;
@@ -205,8 +282,7 @@ module command_processor (
                     end
 
                     8'h02: begin
-                        raster_start = 1'b1;
-                        if (raster_done)
+                        if (raster_done_int)
                             next_state = ST_IDLE;
                     end
 

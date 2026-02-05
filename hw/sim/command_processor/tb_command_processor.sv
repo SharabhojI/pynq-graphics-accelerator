@@ -16,9 +16,7 @@ module tb_command_processor;
     logic        cmd_ready;
 
     logic        clear_start;
-
     logic        raster_start;
-    logic        raster_done;
 
     logic        simd_start;
     logic        simd_done;
@@ -35,9 +33,7 @@ module tb_command_processor;
         .cmd_ready(cmd_ready),
 
         .clear_start(clear_start),
-
         .raster_start(raster_start),
-        .raster_done(raster_done),
 
         .simd_start(simd_start),
         .simd_done(simd_done)
@@ -74,8 +70,7 @@ module tb_command_processor;
 
         cmd_valid = 0;
         cmd_data  = 32'b0;
-
-        raster_done = 0;
+        
         simd_done   = 0;
 
         // Reset
@@ -97,7 +92,7 @@ module tb_command_processor;
         // CLEAR (opcode 0x01, no payload)
         // ========================================================
         send_word({8'h01, 8'h00, 16'd0});
-        wait_idle();   // clear_unit finishes internally
+        wait_idle(); // clear_unit finishes internally
 
         // ========================================================
         // DRAW_TRIANGLE (opcode 0x02, 6 payloads)
@@ -109,15 +104,7 @@ module tb_command_processor;
         send_word(32'd10);
         send_word(32'd30);
         send_word(32'd40);
-
-        // Simulate raster latency
-        @(posedge clk iff raster_start);
-        repeat (5) @(posedge clk);
-        raster_done = 1'b1;
-        @(posedge clk);
-        raster_done = 1'b0;
-
-        wait_idle();
+        wait_idle(); // rasterizer finishes internally
 
         // ========================================================
         // SET_COLOR (opcode 0x10, 1 payload)

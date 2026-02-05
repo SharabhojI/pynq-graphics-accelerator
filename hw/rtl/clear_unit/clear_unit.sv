@@ -82,8 +82,7 @@ module clear_unit (
 
                 ST_ACTIVE: begin
                     // advance counters unless this is the final pixel
-                    if (!((curr_x == latched_xmax - 1) &&
-                          (curr_y == latched_ymax - 1))) begin
+                    if (!((curr_x == latched_xmax - 1) && (curr_y == latched_ymax - 1))) begin
                         if (curr_x + 1 < latched_xmax) begin
                             curr_x <= curr_x + 1;
                         end else begin
@@ -122,8 +121,7 @@ module clear_unit (
                 pixel_valid = 1'b1;
 
                 // transition after issuing final pixel
-                if ((curr_x == latched_xmax - 1) &&
-                    (curr_y == latched_ymax - 1)) begin
+                if ((curr_x == latched_xmax - 1) && (curr_y == latched_ymax - 1)) begin
                     next_state = ST_DONE;
                 end
             end
